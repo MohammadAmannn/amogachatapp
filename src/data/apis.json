@@ -1,0 +1,26 @@
+[
+  { 
+    "id": "openrouter", 
+    "name": "OpenRouter", 
+    "description": "Unified API gateway for 100+ AI models",
+    "envKey": "OPENROUTER_API_KEY"
+  },
+  { 
+    "id": "openai", 
+    "name": "OpenAI", 
+    "description": "Direct OpenAI API access",
+    "envKey": "OPENAI_API_KEY"
+  },
+  { 
+    "id": "anthropic", 
+    "name": "Anthropic", 
+    "description": "Direct Anthropic Claude API access",
+    "envKey": "ANTHROPIC_API_KEY"
+  },
+  { 
+    "id": "google", 
+    "name": "Google AI", 
+    "description": "Direct Google Gemini API access",
+    "envKey": "GOOGLE_API_KEY"
+  }
+]
