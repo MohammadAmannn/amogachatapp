@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { X, FileText, Download, Play, ExternalLink, Search, Mail, Phone, Calendar, ShieldCheck, User, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { DocumentViewer, getFileExtension, getFileIconInfo, useDownloadFile } from '@/components/DocumentViewer'
+import { getFileExtension, getFileIconInfo, useDownloadFile } from '../utils/file-helpers'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
@@ -16,15 +16,13 @@ interface ChatProfilePageProps {
   messages: Message[]
   onBack: () => void
   currentUser: { accountNo: string; name?: string; email?: string } | null
-  onViewPdf: (url: string, name: string) => void
 }
 
-export function ChatProfilePage({ conversation, messages, onBack, currentUser, onViewPdf }: ChatProfilePageProps) {
+export function ChatProfilePage({ conversation, messages, onBack, currentUser }: ChatProfilePageProps) {
   const [activeTab, setActiveTab] = useState('contact')
   const [fileSearchQuery, setFileSearchQuery] = useState('')
   const [selectedPreviewImage, setSelectedPreviewImage] = useState<string | null>(null)
   const [selectedPlayVideo, setSelectedPlayVideo] = useState<string | null>(null)
-  const [activePreviewFile, setActivePreviewFile] = useState<{ url: string; name: string; id?: string } | null>(null)
   const { downloadFile } = useDownloadFile()
 
   // Filter attachments from messages array
@@ -75,19 +73,7 @@ export function ChatProfilePage({ conversation, messages, onBack, currentUser, o
     }
   }
 
-  if (activePreviewFile) {
-    return (
-      <div className="flex h-full w-full flex-col select-none overflow-hidden bg-background">
-        <DocumentViewer
-          fileUrl={activePreviewFile.url}
-          fileName={activePreviewFile.name}
-          onClose={() => setActivePreviewFile(null)}
-          fullscreen={false}
-          messageId={activePreviewFile.id}
-        />
-      </div>
-    )
-  }
+
 
   return (
     <div className="flex flex-col h-full w-full bg-card overflow-hidden select-none animate-in fade-in duration-200 w-full max-w-full min-w-0">
@@ -288,7 +274,7 @@ export function ChatProfilePage({ conversation, messages, onBack, currentUser, o
                       fileName={doc.file_name || 'Document'}
                       fileSize={doc.file_size}
                       createdAt={doc.created_at}
-                      onPreview={() => setActivePreviewFile({ url: doc.file_url || '', name: doc.file_name || 'Document', id: doc.id })}
+                      onPreview={() => window.open(doc.file_url || '', '_blank')}
                       messageId={doc.id}
                     />
                   ))}

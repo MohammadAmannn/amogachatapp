@@ -1,13 +1,12 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { Eye, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { 
   getFileIconInfo, 
   getFileExtension, 
   useDownloadFile 
-} from '@/components/DocumentViewer'
+} from '../utils/file-helpers'
 import { cn } from '@/lib/utils'
-import { FileShareButton } from '@/components/document/FileShareButton'
 
 export interface FileCardProps {
   fileUrl?: string
@@ -138,9 +137,6 @@ export function FileCard({
           >
             <Download className="h-3.5 w-3.5" />
           </Button>
-        )}
-        {messageId && (
-          <FileShareButton fileId={messageId} fileName={resolvedName} />
         )}
       </div>
     </div>

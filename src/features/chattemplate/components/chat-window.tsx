@@ -4,7 +4,6 @@ import {
   Download, ExternalLink, Play, Pause, Trash2, RotateCw, ImagePlus, Video as VideoIcon, 
   FileText, Check, File as FileIcon, Volume2, ChevronLeft, PanelLeft, Info 
 } from 'lucide-react'
-import { DocumentViewer } from '@/components/DocumentViewer'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -99,16 +98,9 @@ export function ChatWindow({
   
   // Inline profile and PDF view states
   const [showProfile, setShowProfile] = useState(false)
-  const [selectedPdfUrl, setSelectedPdfUrl] = useState<string | null>(null)
-  const [selectedPdfName, setSelectedPdfName] = useState<string | null>(null)
-  const [selectedPdfId, setSelectedPdfId] = useState<string | null>(null)
-
   // Reset profile view states on conversation switch
   useEffect(() => {
     setShowProfile(false)
-    setSelectedPdfUrl(null)
-    setSelectedPdfName(null)
-    setSelectedPdfId(null)
   }, [selectedTarget.id])
 
   // Redesign states
@@ -717,22 +709,6 @@ export function ChatWindow({
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
   }
 
-  if (selectedPdfUrl) {
-    return (
-      <DocumentViewer
-        fileUrl={selectedPdfUrl}
-        fileName={selectedPdfName || 'Document'}
-        onClose={() => {
-          setSelectedPdfUrl(null)
-          setSelectedPdfName(null)
-          setSelectedPdfId(null)
-        }}
-        fullscreen={false}
-        messageId={selectedPdfId || undefined}
-      />
-    )
-  }
-
   if (showProfile) {
     return (
       <div className="flex h-full w-full flex-col bg-card border-0 sm:border border-border rounded-none sm:rounded-xl shadow-xs overflow-hidden select-none animate-in fade-in duration-200">
@@ -741,10 +717,6 @@ export function ChatWindow({
           messages={messages}
           currentUser={currentUser}
           onBack={() => setShowProfile(false)}
-          onViewPdf={(url, name) => {
-            setSelectedPdfUrl(url)
-            setSelectedPdfName(name)
-          }}
         />
       </div>
     )
@@ -919,10 +891,8 @@ export function ChatWindow({
                 onDeleteForEveryone={handleDeleteMessageForEveryone}
                 onReply={handleStartReply}
                 onForward={handleStartForward}
-                onViewDocument={(url: string, name: string, messageId?: string) => {
-                  setSelectedPdfUrl(url)
-                  setSelectedPdfName(name)
-                  setSelectedPdfId(messageId || null)
+                onViewDocument={(url: string) => {
+                  window.open(url, '_blank')
                 }}
               />
             ))

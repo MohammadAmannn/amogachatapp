@@ -40,3 +40,5 @@ out/
 .next
 .next/
 *.tsbuildinfo
+.vercel
+.env*
