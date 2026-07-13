@@ -50,7 +50,8 @@ export async function getUserConversations(userId: string): Promise<Conversation
           duration,
           created_at,
           deleted,
-          deleted_by
+          deleted_by,
+          message_status
         )
       `)
       .in('id', convoIds)
