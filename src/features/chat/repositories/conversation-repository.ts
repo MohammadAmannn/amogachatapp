@@ -33,7 +33,8 @@ export async function getUserConversations(userId: string): Promise<Conversation
             id,
             name,
             email,
-            avatar
+            avatar,
+            last_seen
           )
         ),
         chat_messages (
@@ -67,6 +68,7 @@ export async function getUserConversations(userId: string): Promise<Conversation
             name: cm.profiles.name,
             email: cm.profiles.email,
             avatar_url: cm.profiles.avatar || undefined,
+            last_seen: cm.profiles.last_seen || undefined,
           }
         })
         .filter(Boolean)
