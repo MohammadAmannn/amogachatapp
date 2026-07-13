@@ -8,7 +8,7 @@ const reset = vi.fn()
 
 const MOCK_HREF = 'https://app.test/dashboard?tab=1'
 
-vi.mock('@/stores/auth-store', () => ({
+vi.mock('@/features/auth', () => ({
   useAuthStore: () => ({
     auth: { reset },
   }),

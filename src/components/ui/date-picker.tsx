@@ -37,8 +37,8 @@ export const DatePicker = forwardRef<
         <Calendar
           mode="single"
           selected={date}
-          onSelect={setDate}
-          initialFocus
+          onSelect={setDate as any}
+          {...{ initialFocus: true } as any}
         />
       </PopoverContent>
     </Popover>

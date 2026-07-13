@@ -12,12 +12,11 @@ import { ColorThemeProvider } from '@/context/color-theme-provider'
 import { FontProvider } from '@/context/font-provider'
 import { DirectionProvider } from '@/context/direction-provider'
 import { NavigationProgress } from '@/components/navigation-progress'
-import { useAuthStore } from '@/stores/auth-store'
+import { useAuthStore, handleAuthRedirect } from '@/features/auth'
 import { handleServerError } from '@/lib/handle-server-error'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/client'
-import { ensureProfileExists } from '@/features/chattemplate/services/profile.service'
-import { handleAuthRedirect } from '@/services/auth-redirect.service'
+import { createClient } from '@/lib/supabase/client'
+import { ensureProfileExists } from '@/features/chat/repositories/profile-repository'
 
 function QueryProviderWrapper({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -126,6 +125,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         if (!auth.user || auth.user.accountNo !== user.id) {
           console.log('[DEBUG client] Setting user object in store and syncing profile...')
           const userObj = {
+            id: user.id,
             accountNo: user.id,
             email: user.email!,
             name: user.user_metadata?.name || user.user_metadata?.full_name || user.email!.split('@')[0],

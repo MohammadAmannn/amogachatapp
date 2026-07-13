@@ -1,9 +1,9 @@
 'use client'
 
 import { useRouter, usePathname } from 'next/navigation'
-import { useAuthStore } from '@/stores/auth-store'
+import { useAuthStore } from '@/features/auth'
 import { ConfirmDialog } from '@/components/confirm-dialog'
-import { createClient } from '@/lib/client'
+import { createClient } from '@/lib/supabase/client'
 
 interface SignOutDialogProps {
   open: boolean

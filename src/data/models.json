@@ -1,9 +1,0 @@
-[
-  { "id": "google/gemini-2.5-flash", "name": "Gemini 2.5 Flash", "provider": "google" },
-  { "id": "openai/gpt-4o", "name": "GPT-4o", "provider": "openai" },
-  { "id": "anthropic/claude-3.5-sonnet", "name": "Claude 3.5 Sonnet", "provider": "anthropic" },
-  { "id": "deepseek/deepseek-chat", "name": "DeepSeek Chat", "provider": "deepseek" },
-  { "id": "meta-llama/llama-3.3-70b-instruct", "name": "Llama 3.3 70B", "provider": "meta" },
-  { "id": "mistral/mistral-large-latest", "name": "Mistral Large", "provider": "mistral" },
-  { "id": "qwen/qwen-2.5-72b-instruct", "name": "Qwen 2.5 72B", "provider": "qwen" }
-]
