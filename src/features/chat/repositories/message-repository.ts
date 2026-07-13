@@ -124,7 +124,7 @@ export async function createMessage(msg: {
   conversationId: string
   senderId: string
   message: string
-  messageType: 'text' | 'image' | 'video' | 'audio' | 'document' | 'other'
+  messageType: 'text' | 'image' | 'video' | 'audio' | 'document' | 'system' | 'other'
   fileUrl?: string
   fileName?: string
   fileSize?: number
@@ -138,6 +138,11 @@ export async function createMessage(msg: {
     parent_message_id: string | null
   }
   clientMessageId?: string
+  systemMetadata?: {
+    type: 'group_created' | 'members_added'
+    groupName?: string
+    creatorName?: string
+  }
 }): Promise<Message | null> {
   const supabase = createClient()
   try {
@@ -167,15 +172,35 @@ export async function createMessage(msg: {
     }
 
     // 2. Map copies for all conversation members
-    const records = members.map((member: any) => {
+    const records: any[] = []
+    for (const member of members) {
       const isSender = member.user_id === msg.senderId
       const msgId = isSender ? senderMsgId : crypto.randomUUID()
-      return {
+
+      let finalMessage = msg.message
+
+      // Customize system message copies based on the recipient's copy context
+      if (msg.messageType === 'system' && msg.systemMetadata) {
+        const { type: sysType, groupName, creatorName } = msg.systemMetadata
+        if (sysType === 'group_created') {
+          finalMessage = isSender
+            ? `You created group "${groupName}"`
+            : `${creatorName} created group "${groupName}"`
+        } else if (sysType === 'members_added') {
+          // Admin/Creator shouldn't see "creator added you"
+          if (isSender) {
+            continue
+          }
+          finalMessage = `${creatorName} added you`
+        }
+      }
+
+      records.push({
         id: msgId,
         conversation_id: msg.conversationId,
         owner_user_id: member.user_id,
         sender_user_id: msg.senderId,
-        message: msg.message,
+        message: finalMessage,
         message_type: msg.messageType,
         direction: isSender ? 'Sent' : 'Received',
         sent: true,
@@ -208,15 +233,17 @@ export async function createMessage(msg: {
         sender_message_id: isSender ? null : senderMsgId,
         client_message_id: msg.clientMessageId || null,
         message_status: 'sent',
-      }
-    })
+      })
+    }
 
     // 3. Bulk insert copies into the DB (minimal return to bypass RLS SELECT checks on recipient copies)
-    const { error } = await supabase
-      .from('chat_messages')
-      .insert(records)
+    if (records.length > 0) {
+      const { error } = await supabase
+        .from('chat_messages')
+        .insert(records)
 
-    if (error) throw error
+      if (error) throw error
+    }
 
     // 4. Return the sender's own copy of the message, constructed locally
     const senderRecord = records.find((r: any) => r.owner_user_id === msg.senderId)

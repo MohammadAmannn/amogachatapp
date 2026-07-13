@@ -283,6 +283,11 @@ export async function createGroupConversation(
         senderId: businessCreatorId,
         message: `${creatorName} created group "${groupName}"`,
         messageType: 'system',
+        systemMetadata: {
+          type: 'group_created',
+          groupName,
+          creatorName,
+        }
       })
 
       // 2. Member Addition pill
@@ -291,6 +296,10 @@ export async function createGroupConversation(
         senderId: businessCreatorId,
         message: `${creatorName} added you`,
         messageType: 'system',
+        systemMetadata: {
+          type: 'members_added',
+          creatorName,
+        }
       })
     } catch (msgErr) {
       console.error('Failed to create initial group system messages:', msgErr)
