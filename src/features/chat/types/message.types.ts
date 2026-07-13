@@ -6,7 +6,7 @@ export interface Message {
   owner_user_id: string
   sender_user_id: string | null
   message: string | null
-  message_type: 'text' | 'image' | 'video' | 'document' | 'audio'
+  message_type: 'text' | 'image' | 'video' | 'document' | 'audio' | 'system'
   direction: 'Sent' | 'Received'
   sent: boolean
   received: boolean

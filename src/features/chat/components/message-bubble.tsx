@@ -35,6 +35,16 @@ export function MessageBubble({
   onForward,
   onViewDocument,
 }: MessageBubbleProps) {
+  if (message.message_type === 'system') {
+    return (
+      <div className="w-full flex justify-center my-1 select-none animate-in fade-in duration-200">
+        <div className="bg-sky-100/80 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 border border-sky-200/50 dark:border-sky-900/30 rounded-xl px-4 py-1.5 text-[11px] font-semibold shadow-xs max-w-[85%] text-center">
+          {message.message}
+        </div>
+      </div>
+    )
+  }
+
   const isMe = message.sender_user_id === currentUserId
   const [showMobileToolbar, setShowMobileToolbar] = useState(false)
   const longPressTimer = useRef<NodeJS.Timeout | null>(null)

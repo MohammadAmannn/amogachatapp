@@ -264,7 +264,7 @@ export async function createGroupConversation(
       throw insertError
     }
 
-    // Insert initial system message to notify all members and trigger realtime updates
+    // Insert initial system messages to notify all members and trigger realtime updates
     try {
       const { data: creatorProfile } = await supabase
         .from('profiles')
@@ -274,14 +274,23 @@ export async function createGroupConversation(
 
       const creatorName = creatorProfile?.name || creatorProfile?.email?.split('@')[0] || 'Someone'
 
+      // 1. Group Creation pill
       await createMessage({
         conversationId: newConvo.id,
         senderId: businessCreatorId,
-        message: `${creatorName} created group "${groupName}" and added you`,
-        messageType: 'text',
+        message: `${creatorName} created group "${groupName}"`,
+        messageType: 'system',
+      })
+
+      // 2. Member Addition pill
+      await createMessage({
+        conversationId: newConvo.id,
+        senderId: businessCreatorId,
+        message: `${creatorName} added you`,
+        messageType: 'system',
       })
     } catch (msgErr) {
-      console.error('Failed to create initial group system message:', msgErr)
+      console.error('Failed to create initial group system messages:', msgErr)
     }
 
     return {

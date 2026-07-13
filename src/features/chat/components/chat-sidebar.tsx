@@ -93,7 +93,7 @@ export function ChatSidebar({
       </div>
 
       {/* Main List Scroll Area */}
-      <ScrollArea className='flex-1 p-2'>
+      <div className='flex-grow overflow-y-auto p-2 scrollbar-thin'>
         {isLoading ? (
           <div className='flex flex-col items-center justify-center py-14 text-muted-foreground/80 space-y-2'>
             <Loader2 className='h-5 w-5 animate-spin text-primary' />
@@ -227,7 +227,7 @@ export function ChatSidebar({
             })}
           </div>
         )}
-      </ScrollArea>
+      </div>
     </div>
   )
 }

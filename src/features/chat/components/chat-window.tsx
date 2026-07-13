@@ -98,9 +98,11 @@ export function ChatWindow({
   
   // Inline profile and PDF view states
   const [showProfile, setShowProfile] = useState(false)
-  // Reset profile view states on conversation switch
+  const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string } | null>(null)
+  // Reset profile and doc preview view states on conversation switch
   useEffect(() => {
     setShowProfile(false)
+    setPreviewDoc(null)
   }, [selectedTarget.id])
 
   // Redesign states
@@ -717,7 +719,51 @@ export function ChatWindow({
           messages={messages}
           currentUser={currentUser}
           onBack={() => setShowProfile(false)}
+          onViewDocument={(url, name) => {
+            setShowProfile(false)
+            setPreviewDoc({ url, name })
+          }}
         />
+      </div>
+    )
+  }
+
+  if (previewDoc) {
+    return (
+      <div className="flex h-full w-full flex-col bg-card border-0 sm:border border-border rounded-none sm:rounded-xl shadow-xs overflow-hidden animate-in fade-in duration-200">
+        {/* Preview Header */}
+        <div className="flex flex-none justify-between items-center bg-muted/10 p-4 border-b border-border shrink-0 select-none">
+          <div className="flex items-center gap-3 min-w-0">
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => setPreviewDoc(null)}
+              className="h-8.5 w-8.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
+              title="Close Preview"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+            <span className="font-bold text-sm text-foreground truncate">{previewDoc.name}</span>
+          </div>
+          {/* Action buttons */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <a href={previewDoc.url} download={previewDoc.name} target="_blank" rel="noopener noreferrer">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8.5 w-8.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+                title="Download Document"
+              >
+                <Download className="h-4.5 w-4.5" />
+              </Button>
+            </a>
+          </div>
+        </div>
+
+        {/* Doc Viewer Container */}
+        <div className="flex-1 min-h-0 bg-background overflow-hidden relative h-full w-full">
+          <DocPreviewViewer url={previewDoc.url} name={previewDoc.name} />
+        </div>
       </div>
     )
   }
@@ -875,6 +921,14 @@ export function ChatWindow({
         className='flex-1 p-4 bg-muted/5 overflow-y-auto min-h-0 w-full scrollbar-thin'
       >
         <div className='space-y-4 pb-2'>
+          {selectedTarget.type !== 'direct' && (
+            <div className="w-full flex justify-center my-2 select-none animate-in fade-in duration-200">
+              <div className="bg-amber-100/70 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 border border-amber-200/50 dark:border-amber-900/20 rounded-xl px-4 py-2 text-[11px] font-medium shadow-xs max-w-[90%] text-center flex items-center gap-1.5 justify-center leading-normal">
+                <span>🔒 Messages to this group are now secured with end-to-end encryption. Tap for more info.</span>
+              </div>
+            </div>
+          )}
+
           {messages.length === 0 ? (
             <div className='text-center py-20 text-xs text-muted-foreground font-medium'>
               No messages yet. Send a message to start the conversation!
@@ -891,8 +945,8 @@ export function ChatWindow({
                 onDeleteForEveryone={handleDeleteMessageForEveryone}
                 onReply={handleStartReply}
                 onForward={handleStartForward}
-                onViewDocument={(url: string) => {
-                  window.open(url, '_blank')
+                onViewDocument={(url: string, name: string) => {
+                  setPreviewDoc({ url, name })
                 }}
               />
             ))
@@ -1222,4 +1276,63 @@ export function ChatWindow({
     </div>
   )
 }
+
+// ----------------------------------------------------------------------------
+// Custom inline PDF & Document Viewer components powered by @cyntler/react-doc-viewer
+// ----------------------------------------------------------------------------
+const DynamicDocViewer = dynamic(
+  () => import('@cyntler/react-doc-viewer').then((mod) => {
+    return function WrappedDocViewer({ documents }: { documents: any[] }) {
+      return (
+        <mod.default
+          documents={documents}
+          pluginRenderers={mod.DocViewerRenderers}
+          theme={{
+            primary: '#10b981', // Emerald primary to match application theme
+            secondary: '#ffffff',
+            tertiary: '#f3f4f6',
+            textPrimary: '#1f2937',
+            textSecondary: '#6b7280',
+          }}
+          config={{
+            header: {
+              disableHeader: true,
+              disableFileName: true,
+              retainURLParams: false,
+            }
+          }}
+          style={{ height: '100%' }}
+        />
+      )
+    }
+  }),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="flex flex-col items-center justify-center h-full w-full space-y-3 bg-background animate-in fade-in duration-200">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <p className="text-xs font-semibold text-muted-foreground animate-pulse">Loading document preview...</p>
+      </div>
+    )
+  }
+)
+
+function getFileTypeFromFileName(fileName: string): string | undefined {
+  const parts = fileName.split('.')
+  if (parts.length > 1) {
+    return parts[parts.length - 1].toLowerCase()
+  }
+  return undefined
+}
+
+function DocPreviewViewer({ url, name }: { url: string; name: string }) {
+  const fileType = getFileTypeFromFileName(name)
+  const docs = [{ uri: url, fileName: name, fileType: fileType }]
+  return (
+    <div className="h-full w-full">
+      <DynamicDocViewer documents={docs} />
+    </div>
+  )
+}
+
 export default ChatWindow

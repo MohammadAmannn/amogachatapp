@@ -16,9 +16,10 @@ interface ChatProfilePageProps {
   messages: Message[]
   onBack: () => void
   currentUser: { accountNo: string; name?: string; email?: string } | null
+  onViewDocument?: (url: string, name: string) => void
 }
 
-export function ChatProfilePage({ conversation, messages, onBack, currentUser }: ChatProfilePageProps) {
+export function ChatProfilePage({ conversation, messages, onBack, currentUser, onViewDocument }: ChatProfilePageProps) {
   const [activeTab, setActiveTab] = useState('contact')
   const [fileSearchQuery, setFileSearchQuery] = useState('')
   const [selectedPreviewImage, setSelectedPreviewImage] = useState<string | null>(null)
@@ -274,7 +275,7 @@ export function ChatProfilePage({ conversation, messages, onBack, currentUser }:
                       fileName={doc.file_name || 'Document'}
                       fileSize={doc.file_size}
                       createdAt={doc.created_at}
-                      onPreview={() => window.open(doc.file_url || '', '_blank')}
+                      onPreview={onViewDocument ? () => onViewDocument(doc.file_url || '', doc.file_name || 'Document') : () => window.open(doc.file_url || '', '_blank')}
                       messageId={doc.id}
                     />
                   ))}
