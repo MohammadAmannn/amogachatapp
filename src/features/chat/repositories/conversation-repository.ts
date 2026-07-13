@@ -55,6 +55,7 @@ export async function getUserConversations(userId: string): Promise<Conversation
         )
       `)
       .in('id', convoIds)
+      .eq('chat_messages.owner_user_id', businessUserId)
 
     if (convoError) throw convoError
     if (!convos) return []
