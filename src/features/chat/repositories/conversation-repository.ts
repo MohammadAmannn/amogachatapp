@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
 import { Conversation, Profile, Message } from '../types/chat.types'
+import { createMessage } from './message-repository'
 
 export async function getUserConversations(userId: string): Promise<Conversation[]> {
   const supabase = createClient()
@@ -261,6 +262,26 @@ export async function createGroupConversation(
     if (insertError) {
       console.error('Failed to insert members:', insertError)
       throw insertError
+    }
+
+    // Insert initial system message to notify all members and trigger realtime updates
+    try {
+      const { data: creatorProfile } = await supabase
+        .from('profiles')
+        .select('name, email')
+        .eq('id', businessCreatorId)
+        .maybeSingle()
+
+      const creatorName = creatorProfile?.name || creatorProfile?.email?.split('@')[0] || 'Someone'
+
+      await createMessage({
+        conversationId: newConvo.id,
+        senderId: businessCreatorId,
+        message: `${creatorName} created group "${groupName}" and added you`,
+        messageType: 'text',
+      })
+    } catch (msgErr) {
+      console.error('Failed to create initial group system message:', msgErr)
     }
 
     return {
