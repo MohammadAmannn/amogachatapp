@@ -1329,7 +1329,7 @@ function DocPreviewViewer({ url, name }: { url: string; name: string }) {
   const fileType = getFileTypeFromFileName(name)
   const docs = [{ uri: url, fileName: name, fileType: fileType }]
   return (
-    <div className="h-full w-full">
+    <div className="doc-viewer-wrapper h-full w-full">
       <DynamicDocViewer documents={docs} />
     </div>
   )

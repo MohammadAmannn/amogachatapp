@@ -21,9 +21,11 @@ export function useMessageQueue(onMessageSynced?: (clientMsgId: string, serverMs
     loadQueue()
   }, [loadQueue])
 
-  // Automatically trigger sync when coming online
+  // Automatically trigger sync when coming online, with periodic retries if queue is not empty
   useEffect(() => {
-    if (isOnline) {
+    if (!isOnline) return
+
+    const executeSync = () => {
       syncOfflineQueue((clientMsgId, serverMsg) => {
         loadQueue()
         if (onMessageSynced) {
@@ -31,6 +33,14 @@ export function useMessageQueue(onMessageSynced?: (clientMsgId: string, serverMs
         }
       })
     }
+
+    // Run immediately
+    executeSync()
+
+    // Periodically retry every 10 seconds while online
+    const interval = setInterval(executeSync, 10000)
+
+    return () => clearInterval(interval)
   }, [isOnline, loadQueue, onMessageSynced])
 
   const enqueue = useCallback(async (msg: {
