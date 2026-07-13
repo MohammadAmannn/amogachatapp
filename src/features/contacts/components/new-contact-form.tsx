@@ -7,7 +7,6 @@ import { UserPlus, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/features/auth'
 import { createContact } from '../repositories/contact-repository'
-import { createClient } from '@/lib/supabase/client'
 
 interface NewContactFormProps {
   onSuccess: () => void
@@ -20,43 +19,6 @@ export function NewContactForm({ onSuccess }: NewContactFormProps) {
   const [errorText, setErrorText] = useState<string | null>(null)
   
   const currentUser = useAuthStore((state: any) => state.auth.user)
-
-  // ✅ Helper function to get user ID with fallback
-  const getUserId = async (): Promise<string | null> => {
-    // First try: currentUser.id
-    if (currentUser?.id) {
-      return currentUser.id
-    }
-    
-    // Second try: currentUser.accountNo (if it looks like a UUID)
-    if (currentUser?.accountNo && currentUser.accountNo.length === 36) {
-      return currentUser.accountNo
-    }
-    
-    // Third try: Fetch from Supabase directly
-    try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        // ✅ Update the auth store with the id
-        const { auth } = useAuthStore.getState()
-        auth.setUser({
-          id: user.id,
-          accountNo: currentUser?.accountNo || user.id,
-          email: user.email || currentUser?.email || '',
-          name: currentUser?.name || user.user_metadata?.name || user.email?.split('@')[0],
-          picture: currentUser?.picture || user.user_metadata?.avatar_url,
-          role: currentUser?.role || ['user'],
-          exp: Date.now() + 24 * 60 * 60 * 1000,
-        })
-        return user.id
-      }
-    } catch (err) {
-      console.error('Failed to fetch user from Supabase:', err)
-    }
-    
-    return null
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -72,8 +34,8 @@ export function NewContactForm({ onSuccess }: NewContactFormProps) {
       return
     }
 
-    // ✅ Get the user ID with fallbacks
-    const userId = await getUserId()
+    // ✅ SIMPLE: Use currentUser.id directly - no need for complex fallbacks
+    const userId = currentUser.id
     
     if (!userId) {
       toast.error('Unable to get user ID. Please log out and log back in.')
@@ -83,7 +45,7 @@ export function NewContactForm({ onSuccess }: NewContactFormProps) {
     setIsLoading(true)
     try {
       const result = await createContact(
-        userId,  // ✅ Use the resolved user ID
+        userId,  // ✅ Pass the auth user ID directly
         email.trim(), 
         fullName.trim() || undefined
       )

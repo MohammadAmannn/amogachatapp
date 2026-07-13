@@ -60,20 +60,7 @@ export async function createContact(
   try {
     const emailLower = contactEmail.trim().toLowerCase()
 
-    // ✅ Step 1: Check if contact already exists (by email)
-    const { data: existingContact, error: existingError } = await supabase
-      .from('contacts')
-      .select('id')
-      .eq('owner_id', ownerId)
-      .eq('email', emailLower)
-      .maybeSingle()
-
-    if (existingError) throw existingError
-    if (existingContact) {
-      return { success: false, error: 'This contact is already in your list.' }
-    }
-
-    // ✅ Step 2: Search for existing profile by email
+    // ✅ Step 1: Search for existing profile by email
     let { data: profile, error: searchError } = await supabase
       .from('profiles')
       .select('id, name, email, avatar, company, mobile')
@@ -82,9 +69,35 @@ export async function createContact(
 
     if (searchError) throw searchError
 
-    // ✅ Step 3: Prevent adding yourself
+    // ✅ Step 2: Prevent adding yourself
     if (profile && profile.id === ownerId) {
       return { success: false, error: 'You cannot add yourself as a contact.' }
+    }
+
+    // ✅ Step 3: Check if contact already exists (by email case-insensitively OR by contact_user_id)
+    let existingQuery = supabase
+      .from('contacts')
+      .select('id')
+      .eq('owner_id', ownerId)
+
+    if (profile) {
+      const { data: existingContact, error: existingError } = await existingQuery
+        .or(`email.ilike.${emailLower},contact_user_id.eq.${profile.id}`)
+        .maybeSingle()
+
+      if (existingError) throw existingError
+      if (existingContact) {
+        return { success: false, error: 'This contact is already in your list.' }
+      }
+    } else {
+      const { data: existingContact, error: existingError } = await existingQuery
+        .ilike('email', emailLower)
+        .maybeSingle()
+
+      if (existingError) throw existingError
+      if (existingContact) {
+        return { success: false, error: 'This contact is already in your list.' }
+      }
     }
 
     let contactUserId: string
@@ -143,7 +156,7 @@ export async function createContact(
         contact_user_id: contactUserId,
         nickname: nickname?.trim() || null,
         email: emailLower,
-        user_uuid: ownerId  // ✅ FIX: Store the user_uuid
+        user_uuid: ownerId  // ✅ Store the user_uuid
       })
 
     if (insertError) {

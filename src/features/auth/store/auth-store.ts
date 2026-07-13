@@ -8,7 +8,7 @@ interface AuthUser {
   id: string      // ✅ This should always be the auth.uid() from Supabase
   accountNo: string  // ✅ This can be the same as id
   email: string
-  name?: string
+  name: string
   picture?: string
   role: string[]
   exp: number
@@ -58,9 +58,10 @@ export const useAuthStore = create<AuthState>()((set) => {
       user: initUser,
       setUser: (user) =>
         set((state) => {
+          let userToStore: AuthUser | null = null
           if (user) {
             // ✅ Ensure both id and accountNo are set
-            const userToStore = {
+            userToStore = {
               ...user,
               id: user.id || user.accountNo,  // ✅ Fallback to accountNo if id is missing
               accountNo: user.accountNo || user.id,  // ✅ Fallback to id if accountNo is missing
@@ -69,7 +70,7 @@ export const useAuthStore = create<AuthState>()((set) => {
           } else {
             removeCookie(USER_DATA)
           }
-          return { ...state, auth: { ...state.auth, user } }
+          return { ...state, auth: { ...state.auth, user: userToStore } }
         }),
       accessToken: initUser ? initToken : '',
       setAccessToken: (accessToken) =>

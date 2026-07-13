@@ -1,8 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
 import { Conversation, Profile, Message } from '../types/chat.types'
 
-// ✅ REMOVE the getBusinessUserId function entirely - it's causing the issue
-
 export async function getUserConversations(userId: string): Promise<Conversation[]> {
   const supabase = createClient()
   try {
@@ -58,7 +56,7 @@ export async function getUserConversations(userId: string): Promise<Conversation
     if (convoError) throw convoError
     if (!convos) return []
 
-    return convos.map((c: any) => {
+    const mapped = convos.map((c: any) => {
       // ✅ Use profiles instead of users
       const members: Profile[] = (c.conversation_members || [])
         .map((cm: any) => {
@@ -123,6 +121,32 @@ export async function getUserConversations(userId: string): Promise<Conversation
         members,
       }
     })
+
+    // Deduplicate direct conversations
+    const seenDirectRecipients = new Set<string>()
+    const deduplicated: Conversation[] = []
+
+    // Sort by last message time DESC first to keep the most active direct conversation
+    const sorted = [...mapped].sort((a, b) => {
+      const timeA = a.lastMessage ? new Date(a.lastMessage.created_at).getTime() : new Date(a.created_at).getTime()
+      const timeB = b.lastMessage ? new Date(b.lastMessage.created_at).getTime() : new Date(b.created_at).getTime()
+      return timeB - timeA
+    })
+
+    for (const convo of sorted) {
+      if (convo.type === 'direct') {
+        const otherMember = convo.members.find(m => m.id !== businessUserId)
+        const recipientId = otherMember ? otherMember.id : businessUserId
+        
+        if (seenDirectRecipients.has(recipientId)) {
+          continue
+        }
+        seenDirectRecipients.add(recipientId)
+      }
+      deduplicated.push(convo)
+    }
+
+    return deduplicated
   } catch (err) {
     console.error('Failed to get user conversations:', err)
     return []

@@ -1,35 +1,14 @@
 import { createClient } from '@/lib/supabase/client'
 import { Message } from '../types/chat.types'
 
-// Helper function to resolve auth UUID (auth.uid()) to permanent business UUID (users.id)
-async function getBusinessUserId(supabase: any, authUserId: string): Promise<string> {
-  try {
-    const { data, error } = await supabase
-      .from('users')
-      .select('id')
-      .eq('auth_user_id', authUserId)
-      .maybeSingle()
-    
-    if (error) throw error
-    return data?.id || authUserId
-  } catch (err) {
-    console.error('[message.service] Error resolving business UUID:', err)
-    return authUserId
-  }
-}
-
 export async function getConversationMessages(conversationId: string, userId: string): Promise<Message[]> {
   const supabase = createClient()
   try {
-    // Resolve auth UUID to business UUID
-    const businessUserId = await getBusinessUserId(supabase, userId)
-
-    // Note: Joins users table instead of profiles table due to updated constraint
     const { data, error } = await supabase
       .from('chat_messages')
       .select(`
         *,
-        sender:users!sender_user_id (
+        sender:profiles!sender_user_id (
           id,
           name,
           email,
@@ -37,7 +16,7 @@ export async function getConversationMessages(conversationId: string, userId: st
         )
       `)
       .eq('conversation_id', conversationId)
-      .eq('owner_user_id', businessUserId)
+      .eq('owner_user_id', userId)
       .or('deleted.eq.false,deleted_by.not.is.null') // Exclude "delete for me" messages, but show "delete for everyone" messages
       .order('created_at', { ascending: true })
 
@@ -71,16 +50,16 @@ export async function getConversationMessages(conversationId: string, userId: st
       duration: d.duration ? Number(d.duration) : undefined,
       thumbnail: d.thumbnail || undefined,
 
-      thumb: d.thumb,
-      favorite: d.favorite,
-      flag: d.flag,
-      star: d.star,
-      pin: d.pin,
-      archive: d.archive,
-      deleted: d.deleted,
-      action_this: d.action_this,
-      reply: d.reply,
-      forward: d.forward,
+      thumb: !!d.thumb,
+      favorite: !!d.favorite,
+      flag: !!d.flag,
+      star: !!d.star,
+      pin: !!d.pin,
+      archive: !!d.archive,
+      deleted: !!d.deleted,
+      action_this: !!d.action_this,
+      reply: !!d.reply,
+      forward: !!d.forward,
 
       deleted_at: d.deleted_at || undefined,
       deleted_by: d.deleted_by || undefined,
@@ -107,7 +86,7 @@ export async function getConversationMessages(conversationId: string, userId: st
     // Load reply references for UI display if needed
     for (const msg of messages) {
       if (msg.reply && msg.replyto_message_id) {
-        // Resolve reply message details (we query users table for original sender details if joined)
+        // Resolve reply message details (we query profiles table for original sender details if joined)
         const { data: replyMsg, error: replyErr } = await supabase
           .from('chat_messages')
           .select(`
@@ -115,7 +94,7 @@ export async function getConversationMessages(conversationId: string, userId: st
             message,
             message_type,
             file_name,
-            sender:users!sender_user_id(name)
+            sender:profiles!sender_user_id(name)
           `)
           .eq('id', msg.replyto_message_id)
           .maybeSingle()
@@ -162,9 +141,7 @@ export async function createMessage(msg: {
 }): Promise<Message | null> {
   const supabase = createClient()
   try {
-    const businessSenderId = await getBusinessUserId(supabase, msg.senderId)
-
-    // 1. Get conversation members (which are now stored as business UUIDs)
+    // 1. Get conversation members
     const { data: members, error: membersError } = await supabase
       .from('conversation_members')
       .select('user_id')
@@ -191,13 +168,13 @@ export async function createMessage(msg: {
 
     // 2. Map copies for all conversation members
     const records = members.map((member: any) => {
-      const isSender = member.user_id === businessSenderId
+      const isSender = member.user_id === msg.senderId
       const msgId = isSender ? senderMsgId : crypto.randomUUID()
       return {
         id: msgId,
         conversation_id: msg.conversationId,
         owner_user_id: member.user_id,
-        sender_user_id: businessSenderId,
+        sender_user_id: msg.senderId,
         message: msg.message,
         message_type: msg.messageType,
         direction: isSender ? 'Sent' : 'Received',
@@ -242,14 +219,14 @@ export async function createMessage(msg: {
     if (error) throw error
 
     // 4. Return the sender's own copy of the message, constructed locally
-    const senderRecord = records.find((r: any) => r.owner_user_id === businessSenderId)
+    const senderRecord = records.find((r: any) => r.owner_user_id === msg.senderId)
     if (!senderRecord) return null
 
-    // Load sender details from users table to attach to the returned copy
+    // Load sender details from profiles table to attach to the returned copy
     const { data: profile } = await supabase
-      .from('users')
+      .from('profiles')
       .select('id, name, email, avatar')
-      .eq('id', businessSenderId)
+      .eq('id', msg.senderId)
       .maybeSingle()
 
     return {
@@ -338,8 +315,6 @@ export async function deleteMessageForMe(messageId: string): Promise<boolean> {
 export async function deleteMessageForEveryone(messageId: string, senderId: string): Promise<boolean> {
   const supabase = createClient()
   try {
-    const businessSenderId = await getBusinessUserId(supabase, senderId)
-
     // 1. Fetch message details to find sender_message_id
     const { data: msg, error: fetchError } = await supabase
       .from('chat_messages')
@@ -348,7 +323,7 @@ export async function deleteMessageForEveryone(messageId: string, senderId: stri
       .single()
 
     if (fetchError || !msg) return false
-    if (msg.sender_user_id !== businessSenderId) {
+    if (msg.sender_user_id !== senderId) {
       console.error('Only the sender can delete a message for everyone')
       return false
     }
@@ -362,7 +337,7 @@ export async function deleteMessageForEveryone(messageId: string, senderId: stri
         message: 'This message was deleted.',
         deleted: true,
         deleted_at: new Date().toISOString(),
-        deleted_by: businessSenderId
+        deleted_by: senderId
       })
       .or(`id.eq.${senderMsgId},sender_message_id.eq.${senderMsgId}`)
 
@@ -381,8 +356,6 @@ export async function forwardMessage(
 ): Promise<boolean> {
   const supabase = createClient()
   try {
-    const businessSenderId = await getBusinessUserId(supabase, senderId)
-
     // 1. Fetch the original message copy
     const { data: original, error: fetchError } = await supabase
       .from('chat_messages')
@@ -405,13 +378,13 @@ export async function forwardMessage(
       const now = new Date().toISOString()
 
       const records = members.map((member: any) => {
-        const isSender = member.user_id === businessSenderId
+        const isSender = member.user_id === senderId
         const msgId = isSender ? senderMsgId : crypto.randomUUID()
         return {
           id: msgId,
           conversation_id: conversationId,
           owner_user_id: member.user_id,
-          sender_user_id: businessSenderId,
+          sender_user_id: senderId,
           message: original.message,
           message_type: original.message_type,
           direction: isSender ? 'Sent' : 'Received',

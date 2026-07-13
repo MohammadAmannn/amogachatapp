@@ -313,21 +313,28 @@ export function ChatLayout() {
         )
 
         if (newConvo) {
-          await loadConversations(currentUser.accountNo)
-          // Find newly loaded group conversation
-          const conversationsData = await loadConversations(currentUser.accountNo) as any
-          const loadedConvos = conversationsData || conversations
-          const target = loadedConvos.find((c: any) => c.name === group.groupName)
+          // Fetch updated conversations directly from DB to get populated members
+          const dbConvos = await getUserConversations(currentUser.accountNo)
+          setConversations(dbConvos)
+          const target = dbConvos.find((c: any) => c.id === newConvo.id)
           if (target) {
             setActiveConversation(target)
           } else {
+            // Reconstruct members from profiles search
+            const resolvedMembers = []
+            for (const email of (group.users || [])) {
+              const p = await getProfileByEmail(email)
+              if (p) {
+                resolvedMembers.push(p)
+              }
+            }
             setActiveConversation({
               id: newConvo.id,
               type: 'group',
               name: newConvo.name,
               image: newConvo.image,
               created_at: newConvo.created_at,
-              members: [],
+              members: resolvedMembers,
             })
           }
           setMobileView('chat')

@@ -237,8 +237,8 @@ alter publication supabase_realtime add table public.profiles;
 -- Create contacts table
 CREATE TABLE IF NOT EXISTS public.contacts (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    owner_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-    contact_user_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+    owner_id uuid REFERENCES public.profiles(id) ON UPDATE CASCADE ON DELETE CASCADE NOT NULL,
+    contact_user_id uuid REFERENCES public.profiles(id) ON UPDATE CASCADE ON DELETE CASCADE NOT NULL,
     nickname text,
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -331,7 +331,7 @@ CREATE TABLE public.conversations (
 CREATE TABLE public.conversation_members (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     conversation_id uuid REFERENCES public.conversations(id) ON DELETE CASCADE NOT NULL,
-    user_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+    user_id uuid REFERENCES public.profiles(id) ON UPDATE CASCADE ON DELETE CASCADE NOT NULL,
     role text DEFAULT 'member' NOT NULL,
     unread_count integer DEFAULT 0 NOT NULL,
     joined_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -342,8 +342,8 @@ CREATE TABLE public.conversation_members (
 CREATE TABLE public.chat_messages (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     conversation_id uuid REFERENCES public.conversations(id) ON DELETE CASCADE NOT NULL,
-    owner_user_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-    sender_user_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+    owner_user_id uuid REFERENCES public.profiles(id) ON UPDATE CASCADE ON DELETE CASCADE NOT NULL,
+    sender_user_id uuid REFERENCES public.profiles(id) ON UPDATE CASCADE ON DELETE SET NULL,
     message text,
     message_type text NOT NULL DEFAULT 'text',
     direction text NOT NULL CHECK (direction IN ('Sent', 'Received')),
@@ -373,18 +373,18 @@ CREATE TABLE public.chat_messages (
     
     -- Delete info
     deleted_at timestamp with time zone,
-    deleted_by uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+    deleted_by uuid REFERENCES public.profiles(id) ON UPDATE CASCADE ON DELETE SET NULL,
     
     -- Reply Metadata
     replyemoji text,
     replyto_message_id uuid,
-    replyto_user_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+    replyto_user_id uuid REFERENCES public.profiles(id) ON UPDATE CASCADE ON DELETE SET NULL,
     parent_message_id uuid,
     
     -- Forward Metadata
     forwardemoji text,
     forwardto_message_id uuid,
-    forwardto_user_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+    forwardto_user_id uuid REFERENCES public.profiles(id) ON UPDATE CASCADE ON DELETE SET NULL,
     
     -- Lineage Metadata (points to original sender's copy ID to link copies)
     sender_message_id uuid
