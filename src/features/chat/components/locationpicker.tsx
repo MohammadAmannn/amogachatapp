@@ -143,6 +143,19 @@ export function LocationPicker({
         onOpenChange(false)
     }
 
+    // Sync tracking mode to locationType selection
+    useEffect(() => {
+        if (locationType === 'live') {
+            if (!isTracking) {
+                startLiveTracking()
+            }
+        } else {
+            if (isTracking) {
+                stopLiveTracking()
+            }
+        }
+    }, [locationType, isTracking])
+
     // Clean up on unmount
     useEffect(() => {
         return () => {
