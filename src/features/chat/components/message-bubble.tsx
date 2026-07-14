@@ -205,8 +205,8 @@ export function MessageBubble({
               <span className="text-xs font-bold block text-foreground truncate">
                 {message.location_type === 'live' ? 'Live Location' : 'Current Location'}
               </span>
-              <span className="text-[10px] text-muted-foreground block truncate">
-                {message.location_data.latitude.toFixed(5)}, {message.location_data.longitude.toFixed(5)}
+              <span className="text-[10px] text-muted-foreground block truncate" title={message.location_data.address}>
+                {message.location_data.address || `${message.location_data.latitude.toFixed(5)}, ${message.location_data.longitude.toFixed(5)}`}
               </span>
               <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block mt-0.5 animate-pulse">
                 Click to view map

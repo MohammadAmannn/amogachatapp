@@ -8,9 +8,10 @@ interface LeafletMapProps {
   latitude: number
   longitude: number
   type: 'current' | 'live'
+  address?: string
 }
 
-export default function LeafletMap({ latitude, longitude, type }: LeafletMapProps) {
+export default function LeafletMap({ latitude, longitude, type, address }: LeafletMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const markerRef = useRef<L.Marker | null>(null)
@@ -29,6 +30,13 @@ export default function LeafletMap({ latitude, longitude, type }: LeafletMapProp
     // Initialize map
     const map = L.map(mapContainerRef.current).setView([latitude, longitude], 15)
     mapRef.current = map
+
+    // Invalidate map size after a short delay to ensure correct tiles load after layout stabilizes
+    const sizeTimer = setTimeout(() => {
+      if (mapRef.current) {
+        mapRef.current.invalidateSize()
+      }
+    }, 250)
 
     // OpenStreetMap tile layer
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -81,10 +89,11 @@ export default function LeafletMap({ latitude, longitude, type }: LeafletMapProp
 
     // Bind description popup
     marker.bindPopup(`
-      <div style="font-family: inherit; font-size: 12px; padding: 2px;">
+      <div style="font-family: inherit; font-size: 12px; padding: 2px; text-align: center;">
         <b style="color: ${markerColor}">${type === 'live' ? 'Live Location' : 'Current Location'}</b><br/>
-        Lat: ${latitude.toFixed(5)}<br/>
-        Lng: ${longitude.toFixed(5)}
+        <span style="font-size: 11px; color: #4b5563; display: block; margin-top: 4px; max-width: 180px; word-break: break-word;">
+          ${address || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`}
+        </span>
       </div>
     `).openPopup()
 
@@ -99,6 +108,7 @@ export default function LeafletMap({ latitude, longitude, type }: LeafletMapProp
     document.head.appendChild(styleEl)
 
     return () => {
+      clearTimeout(sizeTimer)
       if (mapRef.current) {
         mapRef.current.remove()
         mapRef.current = null
@@ -107,7 +117,7 @@ export default function LeafletMap({ latitude, longitude, type }: LeafletMapProp
         document.head.removeChild(styleEl)
       }
     }
-  }, [latitude, longitude, type])
+  }, [latitude, longitude, type, address])
 
   // React to coordinates updates (important for live location tracking)
   useEffect(() => {

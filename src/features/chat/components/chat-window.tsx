@@ -133,7 +133,7 @@ export function ChatWindow({
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false)
   const [liveLocationInterval, setLiveLocationInterval] = useState<NodeJS.Timeout | null>(null)
   const { getCurrentLocation, startLiveTracking, stopLiveTracking, isTracking } = useLocation()
-  const [activeMapLocation, setActiveMapLocation] = useState<{ lat: number; lng: number; type: 'current' | 'live' } | null>(null)
+  const [activeMapLocation, setActiveMapLocation] = useState<{ lat: number; lng: number; type: 'current' | 'live'; address?: string } | null>(null)
 
   // Drag coordinates reference
   const startXRef = useRef<number>(0)
@@ -283,6 +283,7 @@ export function ChatWindow({
         latitude: data.lat,
         longitude: data.lng,
         accuracy: data.accuracy || 0,
+        address: data.address,
         timestamp: Date.now(),
         ...(type === 'live' && {
           isActive: true,
@@ -852,12 +853,17 @@ export function ChatWindow({
               {activeMapLocation.type === 'live' ? 'Live Location' : 'Current Location'}
             </span>
           </div>
-          <span className="text-xs text-muted-foreground font-semibold">
-            {activeMapLocation.lat.toFixed(5)}, {activeMapLocation.lng.toFixed(5)}
+          <span className="text-xs text-muted-foreground font-semibold truncate max-w-[200px]" title={activeMapLocation.address}>
+            {activeMapLocation.address || `${activeMapLocation.lat.toFixed(5)}, ${activeMapLocation.lng.toFixed(5)}`}
           </span>
         </div>
         <div className="flex-grow min-h-0 bg-background overflow-hidden relative h-full w-full">
-          <LeafletMap latitude={activeMapLocation.lat} longitude={activeMapLocation.lng} type={activeMapLocation.type} />
+          <LeafletMap 
+            latitude={activeMapLocation.lat} 
+            longitude={activeMapLocation.lng} 
+            type={activeMapLocation.type} 
+            address={activeMapLocation.address}
+          />
         </div>
       </div>
     )
@@ -1104,7 +1110,7 @@ export function ChatWindow({
                   setPreviewDoc({ url, name })
                 }}
                 onOpenLocationOnMap={(loc, type) => {
-                  setActiveMapLocation({ lat: loc.latitude, lng: loc.longitude, type })
+                  setActiveMapLocation({ lat: loc.latitude, lng: loc.longitude, type, address: loc.address })
                 }}
               />
             ))
@@ -1445,7 +1451,7 @@ export function ChatWindow({
         open={isLocationPickerOpen}
         onOpenChange={setIsLocationPickerOpen}
         onSendLocation={handleSendLocation}
-        isLiveEnabled={selectedTarget.type === 'direct'} // Only enable live for direct chats initially
+        isLiveEnabled={true} // Enable live location sharing for both direct and group chats
       />
     </div>
   )

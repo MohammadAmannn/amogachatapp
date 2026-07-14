@@ -7,6 +7,38 @@ import { MapPin, Navigation, Clock, X, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
+// Helper for reverse geocoding via our server API endpoint
+async function getFriendlyAddress(lat: number, lng: number): Promise<string> {
+    try {
+        const res = await fetch(`/api/geocode?lat=${lat}&lon=${lng}`)
+        if (!res.ok) return `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+        const data = await res.json()
+        if (data && data.address) {
+            const addr = data.address
+            const parts = []
+            if (addr.amenity) parts.push(addr.amenity)
+            else if (addr.building) parts.push(addr.building)
+            else if (addr.shop) parts.push(addr.shop)
+            else if (addr.road) parts.push(addr.road)
+            
+            if (addr.suburb) parts.push(addr.suburb)
+            else if (addr.neighbourhood) parts.push(addr.neighbourhood)
+            
+            if (addr.city) parts.push(addr.city)
+            else if (addr.town) parts.push(addr.town)
+            else if (addr.village) parts.push(addr.village)
+            
+            if (parts.length > 0) {
+                return parts.join(', ')
+            }
+        }
+        return data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+    } catch (error) {
+        console.error('Reverse geocoding failed:', error)
+        return `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+    }
+}
+
 interface LocationPickerProps {
     open: boolean
     onOpenChange: (open: boolean) => void
@@ -22,10 +54,11 @@ export function LocationPicker({
 }: LocationPickerProps) {
     const [locationType, setLocationType] = useState<'current' | 'live'>('current')
     const [isLoading, setIsLoading] = useState(false)
-    const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null)
+    const [location, setLocation] = useState<{ lat: number; lng: number; address?: string } | null>(null)
     const [liveDuration, setLiveDuration] = useState(15) // minutes
     const [error, setError] = useState<string | null>(null)
     const watchIdRef = useRef<number | null>(null)
+    const lastGeocodeTimeRef = useRef<number>(0)
     const [isTracking, setIsTracking] = useState(false)
 
     // Get current location
@@ -40,13 +73,19 @@ export function LocationPicker({
         }
 
         navigator.geolocation.getCurrentPosition(
-            (position) => {
-                setLocation({
-                    lat: position.coords.latitude,
-                    lng: position.coords.longitude
-                })
+            async (position) => {
+                const lat = position.coords.latitude
+                const lng = position.coords.longitude
+                setLocation({ lat, lng })
                 setIsLoading(false)
                 toast.success('Location acquired!')
+
+                try {
+                    const friendlyName = await getFriendlyAddress(lat, lng)
+                    setLocation({ lat, lng, address: friendlyName })
+                } catch (e) {
+                    console.error(e)
+                }
             },
             (err) => {
                 setError(`Unable to get location: ${err.message}`)
@@ -73,12 +112,29 @@ export function LocationPicker({
         setError(null)
 
         watchIdRef.current = navigator.geolocation.watchPosition(
-            (position) => {
-                setLocation({
-                    lat: position.coords.latitude,
-                    lng: position.coords.longitude
-                })
+            async (position) => {
+                const lat = position.coords.latitude
+                const lng = position.coords.longitude
+                
+                // Immediately update coordinates
+                setLocation(prev => ({
+                    lat,
+                    lng,
+                    address: prev?.address
+                }))
                 setIsLoading(false)
+
+                // Throttle Nominatim geocoding requests to once every 5 seconds to avoid HTTP 429 Rate Limit Blocks
+                const now = Date.now()
+                if (now - lastGeocodeTimeRef.current > 5000) {
+                    lastGeocodeTimeRef.current = now
+                    try {
+                        const friendlyName = await getFriendlyAddress(lat, lng)
+                        setLocation({ lat, lng, address: friendlyName })
+                    } catch (e) {
+                        console.error(e)
+                    }
+                }
             },
             (err) => {
                 setError(`Tracking error: ${err.message}`)
@@ -255,10 +311,10 @@ export function LocationPicker({
                                 </Button>
                             </div>
                         ) : location ? (
-                            <div className="text-center">
+                            <div className="text-center px-4 max-w-full">
                                 <MapPin className="h-8 w-8 text-emerald-600 mx-auto mb-1" />
-                                <span className="text-xs font-bold text-foreground">
-                                    {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
+                                <span className="text-xs font-bold text-foreground block truncate" title={location.address}>
+                                    {location.address || `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`}
                                 </span>
                                 {isTracking && (
                                     <div className="flex items-center justify-center gap-1 mt-1">
