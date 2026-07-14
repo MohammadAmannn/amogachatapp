@@ -223,12 +223,23 @@ export function LocationPicker({
 
     return (
         <Dialog open={open} onOpenChange={handleCancel}>
-            <DialogContent className="sm:max-w-md rounded-2xl">
+            <DialogContent className="sm:max-w-md rounded-2xl" showCloseButton={false}>
                 <DialogHeader>
-                    <DialogTitle className="text-lg font-bold flex items-center gap-2">
-                        <MapPin className="h-5 w-5 text-emerald-600" />
-                        Share Location
-                    </DialogTitle>
+                    <div className="flex items-center gap-2 text-left">
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={handleCancel}
+                            className="h-8.5 w-8.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
+                            title="Close"
+                        >
+                            <X className="h-5 w-5" />
+                        </Button>
+                        <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                            <MapPin className="h-5 w-5 text-emerald-600" />
+                            Share Location
+                        </DialogTitle>
+                    </div>
                 </DialogHeader>
 
                 <div className="space-y-6 py-2">

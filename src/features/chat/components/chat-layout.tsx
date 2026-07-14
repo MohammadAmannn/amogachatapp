@@ -118,6 +118,7 @@ export function ChatLayout() {
   // Load messages when active conversation changes
   useEffect(() => {
     if (activeConversation && currentUser) {
+      setMessages([]) // Clear stale messages immediately when switching chats
       loadMessages(activeConversation.id, currentUser.accountNo)
     } else {
       setMessages([])
