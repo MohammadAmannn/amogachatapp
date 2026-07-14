@@ -47,7 +47,7 @@ export function useMessageQueue(onMessageSynced?: (clientMsgId: string, serverMs
     conversationId: string
     senderId: string
     message: string
-    messageType?: 'text' | 'image' | 'video' | 'document' | 'audio'
+    messageType?: 'text' | 'image' | 'video' | 'document' | 'audio' | 'location'
     attachmentFile?: File | Blob
     attachmentMetadata?: {
       fileName: string
@@ -61,6 +61,8 @@ export function useMessageQueue(onMessageSynced?: (clientMsgId: string, serverMs
       replyto_user_id?: string
       parent_message_id?: string
     }
+    locationData?: any
+    locationType?: 'current' | 'live'
   }) => {
     const item = await addMessageToQueue(msg)
     await loadQueue()

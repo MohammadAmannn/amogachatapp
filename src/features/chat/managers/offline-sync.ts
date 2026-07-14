@@ -66,6 +66,8 @@ export async function syncOfflineQueue(
             parent_message_id: msg.reply_metadata.parent_message_id || null,
           } : undefined,
           clientMessageId: msg.client_message_id,
+          locationData: msg.location_data,
+          locationType: msg.location_type,
         })
 
         if (savedMsg) {

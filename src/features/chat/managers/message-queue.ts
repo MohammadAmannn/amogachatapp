@@ -4,7 +4,7 @@ export async function addMessageToQueue(msg: {
   conversationId: string
   senderId: string
   message: string
-  messageType?: 'text' | 'image' | 'video' | 'document' | 'audio'
+  messageType?: 'text' | 'image' | 'video' | 'document' | 'audio' | 'location'
   attachmentFile?: File | Blob
   attachmentMetadata?: {
     fileName: string
@@ -18,6 +18,8 @@ export async function addMessageToQueue(msg: {
     replyto_user_id?: string
     parent_message_id?: string
   }
+  locationData?: any
+  locationType?: 'current' | 'live'
 }): Promise<QueuedMessage> {
   const clientMsgId = crypto.randomUUID()
   const queuedItem: QueuedMessage = {
@@ -31,6 +33,8 @@ export async function addMessageToQueue(msg: {
     retry_count: 0,
     attachment_file: msg.attachmentFile,
     attachment_metadata: msg.attachmentMetadata,
+    location_data: msg.locationData,
+    location_type: msg.locationType,
   }
 
   await queueMessage(queuedItem)

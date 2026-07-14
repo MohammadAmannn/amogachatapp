@@ -140,7 +140,7 @@ export async function getUserConversations(userId: string): Promise<Conversation
 
     for (const convo of sorted) {
       if (convo.type === 'direct') {
-        const otherMember = convo.members.find(m => m.id !== businessUserId)
+        const otherMember = convo.members.find((m: any) => m.id !== businessUserId)
         const recipientId = otherMember ? otherMember.id : businessUserId
         
         if (seenDirectRecipients.has(recipientId)) {

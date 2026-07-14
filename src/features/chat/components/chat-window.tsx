@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
-import { 
-  Phone, Video, MoreVertical, Paperclip, Send, X, Smile, CheckCheck, Loader2, Mic, Camera, 
-  Download, ExternalLink, Play, Pause, Trash2, RotateCw, ImagePlus, Video as VideoIcon, 
-  FileText, Check, File as FileIcon, Volume2, ChevronLeft, PanelLeft, Info 
+import {
+  Phone, Video, MoreVertical, Paperclip, Send, X, Smile, CheckCheck, Loader2, Mic, Camera,
+  Download, ExternalLink, Play, Pause, Trash2, RotateCw, ImagePlus, Video as VideoIcon,
+  FileText, Check, File as FileIcon, Volume2, ChevronLeft, PanelLeft, Info,
+  MapPin
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -30,22 +31,27 @@ import { MessageBubble } from './message-bubble'
 import { ReplyPreview } from './reply-preview'
 import { ChatProfilePage } from './chat-profile-drawer'
 import { useAttachments } from '../hooks/use-attachments'
-import { 
-  updateMessageBooleanAction, 
-  deleteMessageForMe, 
-  deleteMessageForEveryone, 
-  forwardMessage 
+import {
+  updateMessageBooleanAction,
+  deleteMessageForMe,
+  deleteMessageForEveryone,
+  forwardMessage
 } from '../repositories/message-repository'
 import { getUserConversations } from '../repositories/conversation-repository'
+// Location imports
+import { LocationPicker } from '../components/locationpicker' // Make sure this is the correct path
+import { useLocation } from '../hooks/use-location'
+import { LocationData } from '../types/location.types'
 
 // FEATURE 1: Emoji Picker (Lazy loaded to optimize bundle size)
 const EmojiPicker = dynamic(() => import('./emoji-picker'), { ssr: false })
+const LeafletMap = dynamic(() => import('@/components/ui/leaflet-map'), { ssr: false })
 
 interface ChatWindowProps {
   selectedTarget: Conversation
   messages: Message[]
   onSendMessage: (
-    text: string, 
+    text: string,
     attachment?: {
       messageType: 'image' | 'video' | 'document' | 'audio'
       fileUrl: string
@@ -60,7 +66,10 @@ interface ChatWindowProps {
       replyto_user_id?: string
       parent_message_id?: string
     },
-    attachmentFile?: File | Blob
+    attachmentFile?: File | Blob,
+    locationData?: { // Add this
+      location: LocationData
+    }
   ) => void
   onBackClick?: () => void
   isTyping?: boolean
@@ -95,7 +104,7 @@ export function ChatWindow({
   const [inputText, setInputText] = useState('')
   const { uploads, startUpload, cancelUpload } = useAttachments()
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null)
-  
+
   // Inline profile and PDF view states
   const [showProfile, setShowProfile] = useState(false)
   const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string } | null>(null)
@@ -116,14 +125,20 @@ export function ChatWindow({
   const [isRecording, setIsRecording] = useState(false)
   const [recordDuration, setRecordDuration] = useState(0)
   const [slideX, setSlideX] = useState(0)
-  
+
   // Camera capture states
   const [isCameraOpen, setIsCameraOpen] = useState(false)
+
+  // Location states
+  const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false)
+  const [liveLocationInterval, setLiveLocationInterval] = useState<NodeJS.Timeout | null>(null)
+  const { getCurrentLocation, startLiveTracking, stopLiveTracking, isTracking } = useLocation()
+  const [activeMapLocation, setActiveMapLocation] = useState<{ lat: number; lng: number; type: 'current' | 'live' } | null>(null)
 
   // Drag coordinates reference
   const startXRef = useRef<number>(0)
   const mimeTypeRef = useRef<string>('audio/webm')
-  
+
   // Web camera stream references
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null)
   const cameraStreamRef = useRef<MediaStream | null>(null)
@@ -165,6 +180,17 @@ export function ChatWindow({
     }
   }, [])
 
+  // Clean up live location tracking on unmount or conversation change
+  useEffect(() => {
+    return () => {
+      if (liveLocationInterval) {
+        clearInterval(liveLocationInterval)
+        setLiveLocationInterval(null)
+      }
+      stopLiveTracking()
+    }
+  }, [liveLocationInterval, stopLiveTracking, selectedTarget.id])
+
   // Auto-scroll to bottom of conversation using direct scrollTop to prevent viewport scrolling/blurring on mobile
   const scrollToBottom = () => {
     if (scrollContainerRef.current) {
@@ -184,10 +210,10 @@ export function ChatWindow({
       undefined,
       replyingTo
         ? {
-            replyto_message_id: replyingTo.id,
-            replyto_user_id: replyingTo.sender_user_id || undefined,
-            parent_message_id: replyingTo.parent_message_id || replyingTo.id,
-          }
+          replyto_message_id: replyingTo.id,
+          replyto_user_id: replyingTo.sender_user_id || undefined,
+          parent_message_id: replyingTo.parent_message_id || replyingTo.id,
+        }
         : undefined
     )
     setInputText('')
@@ -239,6 +265,102 @@ export function ChatWindow({
       setIsForwardDialogOpen(true)
     }
   }
+
+  // ========== LOCATION SHARING HANDLERS ==========
+  const handleLocationClick = () => {
+    // Check if geolocation is supported
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser')
+      return
+    }
+    setIsLocationPickerOpen(true)
+  }
+
+  const handleSendLocation = async (type: 'current' | 'live', data: any) => {
+    try {
+      const locationData: LocationData = {
+        type,
+        latitude: data.lat,
+        longitude: data.lng,
+        accuracy: data.accuracy || 0,
+        timestamp: Date.now(),
+        ...(type === 'live' && {
+          isActive: true,
+          expiresAt: data.expiresAt,
+          duration: data.duration,
+          lastUpdated: Date.now()
+        })
+      }
+
+      // Send as message
+      onSendMessage(
+        type === 'live' ? '📍 Live location sharing started' : '📍 Current location shared',
+        undefined,
+        undefined,
+        undefined,
+        { location: locationData }
+      )
+
+      // If live, start periodic updates
+      if (type === 'live') {
+        await startLiveLocationUpdates(data.duration, data.lat, data.lng)
+      }
+
+      toast.success(type === 'live' ? 'Live location sharing started!' : 'Location shared successfully!')
+    } catch (error) {
+      console.error('Failed to send location:', error)
+      toast.error('Failed to share location')
+    }
+  }
+
+  const startLiveLocationUpdates = async (durationMinutes: number, initialLat: number, initialLng: number) => {
+    let lastSentLocation = { lat: initialLat, lng: initialLng }
+
+    startLiveTracking(async (position) => {
+      // Only update if location changed significantly (more than 10 meters)
+      const distance = calculateDistance(
+        lastSentLocation.lat,
+        lastSentLocation.lng,
+        position.lat,
+        position.lng
+      )
+
+      if (distance > 10) {
+        lastSentLocation = { lat: position.lat, lng: position.lng }
+        console.log('Live location update:', position)
+        // Emit via your real-time service
+        // socket.emit('live-location-update', {
+        //     conversationId: selectedTarget.id,
+        //     latitude: position.lat,
+        //     longitude: position.lng,
+        //     accuracy: position.accuracy
+        // })
+      }
+    })
+
+    // Auto-stop after duration
+    setTimeout(() => {
+      stopLiveTracking()
+      toast.info('Live location sharing expired')
+    }, durationMinutes * 60 * 1000)
+  }
+
+  // Helper function to calculate distance between two coordinates (Haversine formula)
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371e3 // Earth's radius in meters
+    const φ1 = lat1 * Math.PI / 180
+    const φ2 = lat2 * Math.PI / 180
+    const Δφ = (lat2 - lat1) * Math.PI / 180
+    const Δλ = (lon2 - lon1) * Math.PI / 180
+
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) *
+      Math.sin(Δλ / 2) * Math.sin(Δλ / 2)
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+
+    return R * c // Distance in meters
+  }
+  // ========== END LOCATION SHARING HANDLERS ==========
 
   const handleExecuteForward = async () => {
     if (!forwardingMessage || selectedForwardTargets.length === 0 || !currentUser) return
@@ -381,13 +503,13 @@ export function ChatWindow({
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'user' }, 
-        audio: false 
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' },
+        audio: false
       })
       cameraStreamRef.current = stream
       setIsCameraOpen(true)
-      
+
       // Bind stream to video preview on next DOM tick
       setTimeout(() => {
         if (cameraVideoRef.current) {
@@ -424,7 +546,7 @@ export function ChatWindow({
     ctx.translate(canvas.width, 0)
     ctx.scale(-1, 1)
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-    
+
     canvas.toBlob((blob) => {
       if (!blob) return
 
@@ -568,7 +690,7 @@ export function ChatWindow({
     }
 
     const durationSec = Math.max(1, Math.round((Date.now() - recordingStartTimeRef.current) / 1000))
-    
+
     // Discard recording if it's less than 1 second (accidental clicks)
     if (durationSec < 1) {
       if (streamRef.current) {
@@ -664,7 +786,7 @@ export function ChatWindow({
 
     if (deltaX > 0) {
       setSlideX(Math.min(120, deltaX))
-      
+
       // If user drags more than 100px left, discard/cancel the recording immediately
       if (deltaX > 100) {
         handleDiscardRecording()
@@ -709,6 +831,36 @@ export function ChatWindow({
     const m = Math.floor(seconds / 60)
     const s = seconds % 60
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+  }
+
+  if (activeMapLocation) {
+    return (
+      <div className="flex h-full w-full flex-col bg-card border-0 sm:border border-border rounded-none sm:rounded-xl shadow-xs overflow-hidden animate-in fade-in duration-200">
+        <div className="flex flex-none justify-between items-center bg-muted/10 p-4 border-b border-border shrink-0 select-none">
+          <div className="flex items-center gap-3 min-w-0">
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => setActiveMapLocation(null)}
+              className="h-8.5 w-8.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
+              title="Close Map"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+            <span className="font-bold text-sm text-foreground flex items-center gap-1.5">
+              <MapPin className="h-4.5 w-4.5 text-emerald-600 animate-bounce" />
+              {activeMapLocation.type === 'live' ? 'Live Location' : 'Current Location'}
+            </span>
+          </div>
+          <span className="text-xs text-muted-foreground font-semibold">
+            {activeMapLocation.lat.toFixed(5)}, {activeMapLocation.lng.toFixed(5)}
+          </span>
+        </div>
+        <div className="flex-grow min-h-0 bg-background overflow-hidden relative h-full w-full">
+          <LeafletMap latitude={activeMapLocation.lat} longitude={activeMapLocation.lng} type={activeMapLocation.type} />
+        </div>
+      </div>
+    )
   }
 
   if (showProfile) {
@@ -764,6 +916,7 @@ export function ChatWindow({
         <div className="flex-1 min-h-0 bg-background overflow-hidden relative h-full w-full">
           <DocPreviewViewer url={previewDoc.url} name={previewDoc.name} />
         </div>
+        {/* REMOVED: LocationPicker was incorrectly placed here */}
       </div>
     )
   }
@@ -784,7 +937,7 @@ export function ChatWindow({
             </Button>
           )}
 
-          <div 
+          <div
             onClick={() => setShowProfile(true)}
             className='flex items-center gap-3 cursor-pointer hover:opacity-85 select-none transition-opacity'
             title="Click to view info"
@@ -842,19 +995,19 @@ export function ChatWindow({
                 } else {
                   const recipient = selectedTarget.members?.find(m => m.id !== currentUser?.accountNo)
                   const isOnline = recipient ? onlineUserIds?.has(recipient.id) : false
-                  
+
                   const formatLastSeen = (lastSeenStr?: string): string => {
                     if (!lastSeenStr) return 'Offline'
                     const date = new Date(lastSeenStr)
                     const now = new Date()
-                    
+
                     const isToday = date.toDateString() === now.toDateString()
                     const yesterday = new Date(now)
                     yesterday.setDate(now.getDate() - 1)
                     const isYesterday = date.toDateString() === yesterday.toDateString()
-                    
+
                     const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                    
+
                     if (isToday) {
                       return `Last seen today at ${timeStr}`
                     } else if (isYesterday) {
@@ -915,9 +1068,11 @@ export function ChatWindow({
             <MoreVertical className='h-4 w-4' />
           </Button>
         </div>
-      </div>      {/* Messages Scroll Area with custom layout templates based on media types */}
-      <div 
-        ref={scrollContainerRef} 
+      </div>
+
+      {/* Messages Scroll Area with custom layout templates based on media types */}
+      <div
+        ref={scrollContainerRef}
         className='flex-1 p-4 bg-muted/5 overflow-y-auto min-h-0 w-full scrollbar-thin'
       >
         <div className='space-y-4 pb-2'>
@@ -947,6 +1102,9 @@ export function ChatWindow({
                 onForward={handleStartForward}
                 onViewDocument={(url: string, name: string) => {
                   setPreviewDoc({ url, name })
+                }}
+                onOpenLocationOnMap={(loc, type) => {
+                  setActiveMapLocation({ lat: loc.latitude, lng: loc.longitude, type })
                 }}
               />
             ))
@@ -1000,6 +1158,7 @@ export function ChatWindow({
       {replyingTo && (
         <ReplyPreview message={replyingTo} onCancel={() => setReplyingTo(null)} />
       )}
+
       <form
         onSubmit={handleSend}
         onMouseMove={handlePointerMove}
@@ -1009,7 +1168,7 @@ export function ChatWindow({
         <div className='rounded-full border border-border bg-background shadow-xs px-3.5 py-1.5 flex items-center gap-2.5 flex-1 min-w-0 relative overflow-hidden h-10'>
           {isRecording ? (
             /* MICROPHONE BUTTON: Recording active UI template (translucent glassmorphic visualizer) */
-            <div 
+            <div
               style={{ transform: `translateX(-${slideX}px)`, transition: 'transform 0.05s ease-out' }}
               className="flex flex-1 items-center justify-between min-w-0 bg-sky-50/10 dark:bg-sky-950/10 backdrop-blur-md rounded-full px-1.5 py-0.5 transition-all duration-300 relative w-full h-full"
             >
@@ -1018,14 +1177,14 @@ export function ChatWindow({
                 <span className="text-[11px] font-extrabold text-red-500 dark:text-red-400 shrink-0">Recording</span>
                 <span className="text-[11px] font-mono font-bold text-muted-foreground/90 tabular-nums shrink-0">{formatDuration(recordDuration)}</span>
               </div>
-              
+
               {/* Premium Waveform Visualizer */}
               <div className="flex-grow flex justify-center px-2 overflow-hidden h-full">
                 <AudioVisualizer stream={streamRef.current} />
               </div>
 
               {/* Slide to Cancel chevron guide */}
-              <div 
+              <div
                 className="flex items-center gap-1 transition-opacity select-none shrink-0"
                 style={{ opacity: Math.max(0.1, 1 - slideX / 60) }}
               >
@@ -1035,7 +1194,7 @@ export function ChatWindow({
 
               {/* Dynamic bin icon overlay as sliding occurs */}
               {slideX > 15 && (
-                <div 
+                <div
                   className={cn(
                     "absolute left-1/3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 transition-all duration-150 animate-in fade-in zoom-in-50",
                     slideX > 80 ? "text-red-500 scale-125 font-black" : "text-muted-foreground/60 font-bold"
@@ -1061,9 +1220,9 @@ export function ChatWindow({
                     <Smile className='h-5 w-5 text-muted-foreground/80 hover:text-foreground transition-colors' />
                   </button>
                 </PopoverTrigger>
-                <PopoverContent 
-                  side="top" 
-                  align="start" 
+                <PopoverContent
+                  side="top"
+                  align="start"
                   className="p-0 border-none bg-transparent shadow-none"
                   sideOffset={12}
                 >
@@ -1104,6 +1263,13 @@ export function ChatWindow({
                     <FileText className="h-4 w-4" />
                     <span>Documents</span>
                   </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleLocationClick()}
+                    className="cursor-pointer gap-2 font-semibold"
+                  >
+                    <MapPin className="h-4 w-4" />
+                    <span>Location</span>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
@@ -1142,8 +1308,8 @@ export function ChatWindow({
             onMouseLeave={handleMouseLeave}
             className={cn(
               'rounded-full h-10 w-10 shrink-0 flex items-center justify-center text-white transition-all shadow-md duration-200 cursor-pointer disabled:opacity-55 select-none touch-none',
-              isRecording 
-                ? 'bg-red-500 hover:bg-red-600 scale-125 shadow-[0_0_15px_rgba(239,68,68,0.6)] animate-pulse' 
+              isRecording
+                ? 'bg-red-500 hover:bg-red-600 scale-125 shadow-[0_0_15px_rgba(239,68,68,0.6)] animate-pulse'
                 : 'bg-emerald-600 hover:bg-emerald-700'
             )}
             aria-label="Record voice note"
@@ -1190,13 +1356,13 @@ export function ChatWindow({
           <div className="w-full flex items-center justify-between">
             <h3 className="text-sm font-bold text-foreground">Capture Photo</h3>
           </div>
-          
+
           <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden border border-border">
-            <video 
-              ref={cameraVideoRef} 
+            <video
+              ref={cameraVideoRef}
               className="w-full h-full object-cover scale-x-[-1]"
-              playsInline 
-              muted 
+              playsInline
+              muted
             />
           </div>
 
@@ -1273,6 +1439,14 @@ export function ChatWindow({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ========== LOCATION PICKER DIALOG - CORRECTLY PLACED HERE ========== */}
+      <LocationPicker
+        open={isLocationPickerOpen}
+        onOpenChange={setIsLocationPickerOpen}
+        onSendLocation={handleSendLocation}
+        isLiveEnabled={selectedTarget.type === 'direct'} // Only enable live for direct chats initially
+      />
     </div>
   )
 }
@@ -1306,7 +1480,7 @@ const DynamicDocViewer = dynamic(
       )
     }
   }),
-  { 
+  {
     ssr: false,
     loading: () => (
       <div className="flex flex-col items-center justify-center h-full w-full space-y-3 bg-background animate-in fade-in duration-200">
