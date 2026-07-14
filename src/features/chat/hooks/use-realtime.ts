@@ -107,6 +107,8 @@ export function useRealtime(
 
             sender_message_id: newMsg.sender_message_id || undefined,
             sender: senderProfile,
+            location_data: newMsg.location_data || undefined,
+            location_type: newMsg.location_type || undefined,
           }
 
           if (payload.eventType === 'INSERT') {

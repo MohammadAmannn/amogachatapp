@@ -38,10 +38,14 @@ export default function LeafletMap({ latitude, longitude, type, address }: Leafl
       }
     }, 250)
 
-    // OpenStreetMap tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
+    // CARTO light/dark responsive basemaps
+    const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+    const mapStyle = isDark ? 'dark_all' : 'light_all'
+    
+    L.tileLayer(`https://{s}.basemaps.cartocdn.com/${mapStyle}/{z}/{x}/{y}{r}.png`, {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 20,
     }).addTo(map)
 
     const markerColor = type === 'live' ? '#10b981' : '#3b82f6'
