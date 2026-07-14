@@ -27,9 +27,15 @@ export default function LeafletMap({ latitude, longitude, type, address }: Leafl
       shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
     })
 
-    // Initialize map
-    const map = L.map(mapContainerRef.current).setView([latitude, longitude], 15)
+    // Initialize map without default zoom controls to add them explicitly to the left
+    const map = L.map(mapContainerRef.current, {
+      zoomControl: false
+    }).setView([latitude, longitude], 15)
     mapRef.current = map
+
+    L.control.zoom({
+      position: 'topleft'
+    }).addTo(map)
 
     // Invalidate map size after a short delay to ensure correct tiles load after layout stabilizes
     const sizeTimer = setTimeout(() => {
@@ -101,12 +107,23 @@ export default function LeafletMap({ latitude, longitude, type, address }: Leafl
       </div>
     `).openPopup()
 
-    // Keyframe animations for live ping
+    // Keyframe animations for live ping and popup styling
     const styleEl = document.createElement('style')
     styleEl.innerHTML = `
       @keyframes ping {
         0% { transform: scale(0.5); opacity: 0.8; }
         70%, 100% { transform: scale(2); opacity: 0; }
+      }
+      .leaflet-popup-close-button {
+        left: 6px !important;
+        right: auto !important;
+        color: #9ca3af !important;
+      }
+      .leaflet-popup-content {
+        margin: 12px 12px 12px 24px !important;
+      }
+      .leaflet-popup-content-wrapper {
+        border-radius: 12px !important;
       }
     `
     document.head.appendChild(styleEl)
