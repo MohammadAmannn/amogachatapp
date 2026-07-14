@@ -362,7 +362,10 @@ export function ChatLayout() {
       replyto_user_id?: string
       parent_message_id?: string
     },
-    attachmentFile?: File | Blob
+    attachmentFile?: File | Blob,
+    locationData?: {
+      location: any
+    }
   ) => {
     if (!activeConversation || !currentUser) return
 
@@ -385,7 +388,7 @@ export function ChatLayout() {
       owner_user_id: currentUser.accountNo,
       sender_user_id: currentUser.accountNo,
       message: text || null,
-      message_type: attachment?.messageType || 'text',
+      message_type: locationData ? 'location' : (attachment?.messageType || 'text'),
       direction: 'Sent',
       sent: false,
       received: false,
@@ -414,6 +417,9 @@ export function ChatLayout() {
       replyto_user_id: replyMetadata?.replyto_user_id,
       parent_message_id: replyMetadata?.parent_message_id,
       replyto_message: parentMsgCopy,
+
+      location_data: locationData?.location,
+      location_type: locationData?.location?.type,
 
       sender: {
         id: currentUser.accountNo,
@@ -447,7 +453,7 @@ export function ChatLayout() {
         conversationId: activeConversation.id,
         senderId: currentUser.accountNo,
         message: text,
-        messageType: attachment?.messageType || 'text',
+        messageType: locationData ? 'location' : (attachment?.messageType || 'text'),
         attachmentFile,
         attachmentMetadata: attachment ? {
           fileName: attachment.fileName,
@@ -456,6 +462,8 @@ export function ChatLayout() {
           duration: attachment.duration,
         } : undefined,
         replyMetadata,
+        locationData: locationData?.location,
+        locationType: locationData?.location?.type,
       })
       toast.info('Waiting for connection... message queued.')
       return
@@ -467,7 +475,9 @@ export function ChatLayout() {
         currentUser.accountNo,
         text,
         attachment,
-        replyMetadata
+        replyMetadata,
+        locationData?.location,
+        locationData?.location?.type
       )
 
       if (savedMsg) {

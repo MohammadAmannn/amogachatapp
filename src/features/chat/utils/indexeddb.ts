@@ -32,7 +32,7 @@ export interface QueuedMessage {
   conversation_id: string
   sender_id: string
   message: string
-  message_type: 'text' | 'image' | 'video' | 'document' | 'audio'
+  message_type: 'text' | 'image' | 'video' | 'document' | 'audio' | 'location'
   created_at: string
   reply_metadata?: {
     replyemoji?: string
@@ -53,6 +53,8 @@ export interface QueuedMessage {
     mimeType: string
     duration?: number
   }
+  location_data?: any
+  location_type?: 'current' | 'live'
 }
 
 export async function queueMessage(message: QueuedMessage): Promise<void> {

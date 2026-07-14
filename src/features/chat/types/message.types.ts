@@ -1,4 +1,5 @@
 import { Profile } from './chat.types'
+import { LocationData, LiveLocationData } from './location.types'
 
 export interface Message {
   id: string
@@ -6,11 +7,15 @@ export interface Message {
   owner_user_id: string
   sender_user_id: string | null
   message: string | null
-  message_type: 'text' | 'image' | 'video' | 'document' | 'audio' | 'system'
+  message_type: 'text' | 'image' | 'video' | 'document' | 'audio' | 'system' | 'location'
   direction: 'Sent' | 'Received'
   sent: boolean
   received: boolean
   created_at: string
+  
+  // Location
+  location_data?: LocationData | LiveLocationData
+  location_type?: 'current' | 'live'
   
   // Attachments
   file_url?: string

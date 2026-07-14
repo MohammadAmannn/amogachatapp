@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { cn } from '@/lib/utils'
-import { Check, CheckCheck, Clock, CornerUpLeft } from 'lucide-react'
+import { Check, CheckCheck, Clock, CornerUpLeft, MapPin } from 'lucide-react'
 import { Message } from '../types/chat.types'
 import { AttachmentRenderer } from '@/features/files/components/attachment-renderer'
 import { MessageActions } from './message-actions'
@@ -22,6 +22,7 @@ interface MessageBubbleProps {
   onReply: (message: Message) => void
   onForward: (message: Message) => void
   onViewDocument?: (url: string, name: string, messageId?: string) => void
+  onOpenLocationOnMap?: (location: any, type: 'current' | 'live') => void
 }
 
 export function MessageBubble({
@@ -34,6 +35,7 @@ export function MessageBubble({
   onReply,
   onForward,
   onViewDocument,
+  onOpenLocationOnMap,
 }: MessageBubbleProps) {
   if (message.message_type === 'system') {
     return (
@@ -175,9 +177,9 @@ export function MessageBubble({
         )}
 
         {/* Attachments Renderer */}
-        {!message.deleted && (
+        {!message.deleted && message.message_type !== 'location' && (
           <AttachmentRenderer
-            messageType={message.message_type}
+            messageType={message.message_type as any}
             fileUrl={message.file_url}
             fileName={message.file_name}
             fileSize={message.file_size}
@@ -187,11 +189,37 @@ export function MessageBubble({
           />
         )}
 
+        {/* Location Card Renderer */}
+        {!message.deleted && message.message_type === 'location' && message.location_data && (
+          <div 
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpenLocationOnMap?.(message.location_data, message.location_type || 'current')
+            }}
+            className="flex items-center gap-3 p-3 bg-muted/40 hover:bg-muted/70 dark:bg-zinc-800/40 dark:hover:bg-zinc-800/70 border border-border/60 rounded-xl cursor-pointer transition-colors max-w-[260px] my-1"
+          >
+            <div className="h-10 w-10 rounded-lg bg-emerald-500/10 dark:bg-emerald-500/20 flex items-center justify-center shrink-0">
+              <MapPin className="h-5 w-5 text-emerald-600 dark:text-emerald-400 animate-pulse" />
+            </div>
+            <div className="flex-1 min-w-0 text-left">
+              <span className="text-xs font-bold block text-foreground truncate">
+                {message.location_type === 'live' ? 'Live Location' : 'Current Location'}
+              </span>
+              <span className="text-[10px] text-muted-foreground block truncate">
+                {message.location_data.latitude.toFixed(5)}, {message.location_data.longitude.toFixed(5)}
+              </span>
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block mt-0.5 animate-pulse">
+                Click to view map
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Text Message Content */}
         {message.deleted ? (
           <p className="break-words">This message was deleted.</p>
         ) : (
-          (message.message_type === 'text' || message.message) && (
+          (message.message_type === 'text' || (message.message && message.message_type !== 'location')) && (
             <p className="break-words whitespace-pre-wrap mt-1">{message.message}</p>
           )
         )}

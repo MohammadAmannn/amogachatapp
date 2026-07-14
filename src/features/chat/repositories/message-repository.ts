@@ -81,6 +81,8 @@ export async function getConversationMessages(conversationId: string, userId: st
         email: d.sender.email,
         avatar_url: d.sender.avatar || undefined,
       } : undefined,
+      location_data: d.location_data || undefined,
+      location_type: d.location_type || undefined,
     }))
 
     // Load reply references for UI display if needed
@@ -124,7 +126,7 @@ export async function createMessage(msg: {
   conversationId: string
   senderId: string
   message: string
-  messageType: 'text' | 'image' | 'video' | 'audio' | 'document' | 'system' | 'other'
+  messageType: 'text' | 'image' | 'video' | 'audio' | 'document' | 'system' | 'other' | 'location'
   fileUrl?: string
   fileName?: string
   fileSize?: number
@@ -143,6 +145,8 @@ export async function createMessage(msg: {
     groupName?: string
     creatorName?: string
   }
+  locationData?: any
+  locationType?: 'current' | 'live'
 }): Promise<Message | null> {
   const supabase = createClient()
   try {
@@ -233,6 +237,8 @@ export async function createMessage(msg: {
         sender_message_id: isSender ? null : senderMsgId,
         client_message_id: msg.clientMessageId || null,
         message_status: 'sent',
+        location_data: msg.locationData || null,
+        location_type: msg.locationType || null,
       })
     }
 
@@ -289,6 +295,8 @@ export async function createMessage(msg: {
       parent_message_id: senderRecord.parent_message_id || undefined,
       message_status: senderRecord.message_status,
       client_message_id: senderRecord.client_message_id || undefined,
+      location_data: senderRecord.location_data || undefined,
+      location_type: senderRecord.location_type || undefined,
       sender: profile ? {
         id: profile.id,
         name: profile.name || profile.email.split('@')[0],

@@ -22,7 +22,9 @@ export function useSendMessage() {
       replyto_message_id?: string
       replyto_user_id?: string
       parent_message_id?: string
-    }
+    },
+    locationData?: any,
+    locationType?: 'current' | 'live'
   ): Promise<Message | null> => {
     setIsSending(true)
     try {
@@ -30,7 +32,7 @@ export function useSendMessage() {
         conversationId,
         senderId,
         message: text,
-        messageType: attachment?.messageType || 'text',
+        messageType: locationData ? 'location' : (attachment?.messageType || 'text'),
         fileUrl: attachment?.fileUrl,
         fileName: attachment?.fileName,
         fileSize: attachment?.fileSize,
@@ -42,6 +44,8 @@ export function useSendMessage() {
           replyto_user_id: replyMetadata.replyto_user_id || null,
           parent_message_id: replyMetadata.parent_message_id || null,
         } : undefined,
+        locationData,
+        locationType,
       })
 
       return savedMsg
